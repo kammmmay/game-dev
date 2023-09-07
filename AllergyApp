@@ -1,0 +1,79 @@
+# database with image reader to identify key words in ingregient lists. 
+
+User would first need to select the pertinent food allergies/sensitivies that they had. The app would be able to take a picture and highlight the text in red if the item has an item that may contain an allergen they noted. 
+Allergen | Keyword
+Dairy | Whey
+
+import sqlite3
+
+# Create a new SQLite database (or connect to an existing one)
+conn = sqlite3.connect('keywords.db')
+cursor = conn.cursor()
+
+# Create a table to store keywords
+cursor.execute('''CREATE TABLE IF NOT EXISTS keywords (keyword TEXT)''')
+
+# Add keywords to the database
+keywords = ['keyword1', 'keyword2', 'keyword3']
+for keyword in keywords:
+    cursor.execute('INSERT INTO keywords (keyword) VALUES (?)', (keyword,))
+
+# Commit changes and close the database connection
+conn.commit()
+conn.close()
+Modify Your Image Processing Code:
+
+
+#The following code processes the image and highlights it red if it an a found keyword. 
+
+import cv2
+import pytesseract
+from PIL import Image
+import sqlite3
+
+# Initialize the camera (you may need to adjust the camera index)
+cap = cv2.VideoCapture(0)
+
+# Connect to the database
+conn = sqlite3.connect('keywords.db')
+cursor = conn.cursor()
+
+while True:
+    # Capture a frame from the camera
+    ret, frame = cap.read()
+
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Use Tesseract to extract text from the grayscale image
+    text = pytesseract.image_to_string(Image.fromarray(gray))
+
+    # Compare extracted text with keywords from the database
+    cursor.execute('SELECT keyword FROM keywords')
+    keywords = cursor.fetchall()
+    keywords = [keyword[0] for keyword in keywords]
+
+    found_keywords = [keyword for keyword in keywords if keyword.lower() in text.lower()]
+
+    # Highlight found keywords in red
+    for keyword in found_keywords:
+        text = text.replace(keyword, f'<font color="red">{keyword}</font>')
+
+    # Display the modified image with detected text
+    frame_with_highlight = cv2.putText(frame.copy(), text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    cv2.imshow('Camera Text Detection', frame_with_highlight)
+
+    # Display the extracted text and found keywords in the console
+    print("Detected Text:")
+    print(text)
+    print("Found Keywords:")
+    print(found_keywords)
+
+    # Press 'q' to exit the loop
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the camera, close the database connection, and close OpenCV windows
+cap.release()
+conn.close()
+cv2.destroyAllWindows()
